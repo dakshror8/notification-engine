@@ -1,0 +1,14 @@
+// use prisma-8
+
+
+model notification{
+  id        String  @id @onCreate(uuid())
+  userId    String
+  type      String  // 'EMAIL', 'SMS', 'PUSH'
+  message   String
+  status    String  @default("PENDING")
+  createdAt DateTime  @default(now())
+  updatedAt temporal.UpdatedAt
+
+  @@index([userId])
+}
