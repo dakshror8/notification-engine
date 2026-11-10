@@ -1,3 +1,4 @@
+import './worker.js';
 import 'dotenv/config';
 import express from 'express';
 import type {Request, Response} from 'express';
@@ -101,6 +102,8 @@ export { app };
 
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.NODE_ENV !== 'test') {
+    await import('./worker.js');
+    
     const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`API Gateway listening on port ${PORT}`);
     });
