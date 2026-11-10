@@ -15,6 +15,18 @@ const createNotificationSchema = z.object({
     message: z.string().min(1).max(500, "message must be 1 to 500 characters long.")
 });
 
+app.get('/', (req: Request, res: Response) => {
+    res.status(200).json({
+        service: 'Distributed Real-Time Notification Engine',
+        status: 'ONLINE',
+        endpoints: {
+            health: 'GET /health',
+            sendNotification: 'POST /api/v1/notifications',
+            getNotifications: 'GET /api/v1/notifications',
+        },
+    });
+});
+
 // get '/health' endpoint
 app.get('/health', (req: Request, res: Response) => {
     res.status(200).json({status: 'UP', timestamp: new Date()});
@@ -103,7 +115,7 @@ export { app };
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.NODE_ENV !== 'test') {
     await import('./worker.js');
-    
+
     const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`API Gateway listening on port ${PORT}`);
     });
