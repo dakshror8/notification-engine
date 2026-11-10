@@ -8,7 +8,7 @@ export interface NotificationJobData{
 }
 
 export const redisConnection = createClient({
-    url: 'redis://127.0.0.1:6379',
+    url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
 });
 
 redisConnection.on('error', (err) => {console.error("redis Client error: ", err)});
