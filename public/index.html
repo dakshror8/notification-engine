@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notification Engine Control Plane</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+    .card { background: #1e293b; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #334155; }
+    input, select, button { padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; margin-right: 8px; margin-bottom: 10px; }
+    button { background: #3b82f6; border: none; font-weight: bold; cursor: pointer; }
+    button.secondary { background: #f59e0b; color: #0f172a; }
+    pre { background: #020617; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    .row { border-bottom: 1px solid #334155; padding: 8px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>🚀 Distributed Notification Engine</h2>
+  <p style="color: #94a3b8;">Express • Zod • Redis Idempotency • BullMQ • PostgreSQL</p>
+
+  <div class="card">
+    <h3>Trigger Notification</h3>
+    <input id="userId" value="user_101" placeholder="User ID" />
+    <select id="type">
+      <option value="EMAIL">EMAIL</option>
+      <option value="SMS">SMS</option>
+      <option value="PUSH">PUSH</option>
+    </select>
+    <input id="message" value="Order #402 confirmed!" placeholder="Message" style="width: 240px;" />
+    <br />
+    <button onclick="sendNotification(true)">Send New Request (202)</button>
+    <button class="secondary" onclick="sendNotification(false)">Retry Same Key (409 Duplicate)</button>
+    <pre id="responseBox">Click a button above to test the API gateway...</pre>
+  </div>
+
+  <div class="card">
+    <h3>Live PostgreSQL Audit Log <button onclick="loadLogs()" style="float:right; padding:4px 10px; font-size:12px;">Refresh</button></h3>
+    <div id="logs">Loading...</div>
+  </div>
+
+  <script>
+    let lastKey = 'demo-' + Date.now();
+    async function sendNotification(isNew) {
+      if (isNew) lastKey = 'demo-' + Date.now();
+      const res = await fetch('/api/v1/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': lastKey },
+        body: JSON.stringify({
+          userId: document.getElementById('userId').value,
+          type: document.getElementById('type').value,
+          message: document.getElementById('message').value
+        })
+      });
+      const data = await res.json();
+      document.getElementById('responseBox').textContent = `HTTP ${res.status} (Key: ${lastKey})\n` + JSON.stringify(data, null, 2);
+      setTimeout(loadLogs, 2000);
+    }
+    async function loadLogs() {
+      const res = await fetch('/api/v1/notifications');
+      const json = await res.json();
+      document.getElementById('logs').innerHTML = json.data.map(n =>
+        `<div class="row"><strong>[${n.type}]</strong> ${n.userId}: "${n.message}" <span style="color:#4ade80; float:right;">${n.status}</span></div>`
+      ).join('') || 'No records yet.';
+    }
+    loadLogs();
+  </script>
+</body>
+</html>
