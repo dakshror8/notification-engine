@@ -4,6 +4,14 @@ An event-driven, fault-tolerant notification ingestion and delivery pipeline bui
 
 Designed to decouple high-throughput HTTP ingestion from slow downstream delivery operations (Email, SMS, Push), ensuring non-blocking API responses, strict payload validation, and idempotent processing under burst traffic.
 
+## 🌐 Live Demo & Interactive Control Panel
+
+* **Live Application:** [https://notification-engine-zzhf.onrender.com](https://notification-engine-zzhf.onrender.com)
+* **Interactive UI (`GET /`):** Trigger test notifications, simulate duplicate client retries (`409 Conflict`), and inspect live database logs directly in your browser.
+* **Audit Logs API (`GET /api/v1/notifications`):** View the 20 most recent persisted delivery records from Neon PostgreSQL.
+
+> *Note: Hosted on Render's free tier—the initial request after 15 minutes of inactivity may take ~30 seconds to wake the container.*
+
 ---
 
 ## 🏗️ System Architecture
