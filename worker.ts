@@ -32,3 +32,13 @@ const worker = new Worker<NotificationJobData>('notifications',
 worker.on('failed', (job, err) => {
     console.error(`Job:${job?.id} failed permanently after all retries: `, err.message);
 });
+
+const shutdownWorker = async () => {
+    console.log('Shutting down worker gracefully...');
+    await worker.close();
+    await redisConnection.quit();
+    process.exit(0);
+};
+
+process.on('SIGTERM', shutdownWorker);
+process.on('SIGINT', shutdownWorker);

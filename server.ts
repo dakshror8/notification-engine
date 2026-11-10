@@ -33,27 +33,29 @@ app.post('/api/v1/notifications', async (req: Request, res: Response) => {
     }
 
     const idempotencyKey = req.header('Idempotency-Key');
-    if (idempotencyKey) {
-        const redisKey = `idempotency:${idempotencyKey}`;
-        
-        const result = await redisConnection.set(redisKey, 'PROCESSING', {
-            condition: 'NX',
-            expiration: { type: 'EX', value: 86400 },
-        });
-        const isFirstRequest = result === 'OK';
-
-        if (!isFirstRequest) {
-            console.log(`Blocked duplicate request with Idempotency-Key: ${idempotencyKey}`);
-            res.status(409).json({
-                success: false,
-                error: 'Duplicate request detected. Notification already queued.',
-            });
-            return;
-        }
-    }
-
+    let lockedRedisKey: string | null = null;
 
     try{
+        if (idempotencyKey) {
+            const redisKey = `idempotency:${idempotencyKey}`;
+            
+            const result = await redisConnection.set(redisKey, 'PROCESSING', {
+                condition: 'NX',
+                expiration: { type: 'EX', value: 86400 },
+            });
+            const isFirstRequest = result === 'OK';
+
+            if (!isFirstRequest) {
+                console.log(`Blocked duplicate request with Idempotency-Key: ${idempotencyKey}`);
+                res.status(409).json({
+                    success: false,
+                    error: 'Duplicate request detected. Notification already queued.',
+                });
+                return;
+            }
+            lockedRedisKey = redisKey;
+        }
+
         const { userId, type, message } = validation.data;
         const job = await notificationQueue.add('send-alert', {
             userId,
@@ -67,6 +69,9 @@ app.post('/api/v1/notifications', async (req: Request, res: Response) => {
             jobId: job.id,
         });
     }catch(error){
+        if (lockedRedisKey) {
+            await redisConnection.del(lockedRedisKey);
+        }
         console.error('Queue Error:', error);
         res.status(500).json({ 
             success: false, 
@@ -77,30 +82,39 @@ app.post('/api/v1/notifications', async (req: Request, res: Response) => {
 });
 
 app.get('/api/v1/notifications', async (req: Request, res: Response) => {
-    
-    try{
+    try {
         const notifications = await db.orm.public.notification.all();
+        const recentNotifications = notifications.slice(-20).reverse();
+
         res.status(200).json({
             success: true,
-            length: notifications.length,
-            data: notifications
+            count: recentNotifications.length,
+            data: recentNotifications,
         });
-    }catch(error){
-        console.error("Database fetch failed: ", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to fetch notifications from database."
-        });
+    } catch (error) {
+        console.error('Fetch Error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch notifications.' });
     }
-    
 });
 
 export { app };
 
-const PORT = 3000;
-if(process.env.NODE_ENV !== 'test'){
-    app.listen(PORT, () => {
-        console.log(`API Gateway listening on http://localhost:${PORT}`);
+const PORT = Number(process.env.PORT) || 3000;
+if (process.env.NODE_ENV !== 'test') {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+        console.log(`API Gateway listening on port ${PORT}`);
     });
+
+    // Graceful shutdown when cloud containers restart
+    const shutdown = async () => {
+        console.log('Shutting down API Gateway gracefully...');
+        server.close();
+        await notificationQueue.close();
+        await redisConnection.quit();
+        process.exit(0);
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 }
 
